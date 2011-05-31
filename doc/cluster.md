@@ -17,14 +17,15 @@ state accordingly.  Meanwhile, they are watching for an available cal
 slot to become available.  In the event of a cal slot becoming available, slaves
 will attempt to lock the right to take over that responsibility. 
 
-## Bootstrapping
+## Clustering Forward
 
-For a cluster to start, it needs either an initial CAL process for others to
-attach to, or a *Doozer Name Service*.
+There are two methods for creating a doozer cluster.  The first is without a Doozer Name Service, also known as DzNS (doozness).  The second is with DzNS.
 
 A `doozerd` started without being given another `doozerd` process to attach to,
 will start life as the only CAL in a cluster of one.  A `doozerd` that is
-attached to a cluster starts life as a slave.
+attached to a cluster starts life as a slave.  Slaves observe changes to the `/ctl/cal` directory so they may attempt to set the contents of an empty file to their identifier and upgrade to a CAL.
+
+### Clustring without DzNS
 
 Start the initial CAL:
 
@@ -43,15 +44,14 @@ initial CAL.
 
 Add the third slave:
 
-
     $ doozerd -l 127.0.0.3:8064 -a 127.0.0.1:8046
 
 Pro Tip:  Once the initial CAL is booted.  Slaves can connect at anytime,
 meaning you can launch them in parallel.
 
-## Adding CAL slots
+**Adding CAL slots**
 
-We need to use a Doozer client to add CAL slots.  For this example we will use the `doozer` command.
+We need to use a Doozer client to add CAL slots.  For this example we will use the `doozer` command line client.
 
 Create two empty files under `/ctl/cal`.
 
