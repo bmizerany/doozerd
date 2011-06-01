@@ -42,11 +42,11 @@ Create two extra member files so the slaves will attempt to become members:
 
 		$ export DOOZER_URI='doozer:?ca=127.0.0.1:8046'
 		$ printf '' | doozer set /ctl/cal/1 0
-		$ printf '' | doozer set /ctl/cal/1 0
+		$ printf '' | doozer set /ctl/cal/2 0
 
 You can now open 127.0.0.X:8000 to see each member and the slaves web view and make sure each file `/ctl/cal` contains a valid identifier.
 
-### Without DzNS
+### With DzNS
 
 First, create a cluster without DzNS.  This new cluster will be the DzNS the next cluster will use to bootstap.
 
@@ -60,4 +60,4 @@ Now create another cluster of three with the DzNS:
 
 ## TODO: `doozer` should be able to use DOOZER_BOOT_URI
 		$ printf '' | doozer set /ctl/cal/1 0
-		$ printf '' | doozer set /ctl/cal/1 0
+		$ printf '' | doozer set /ctl/cal/2 0
