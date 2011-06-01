@@ -50,7 +50,7 @@ You can now open 127.0.0.X:8000 to see each member and the slaves web view and m
 
 First, create a cluster without DzNS.  This new cluster will be the DzNS the next cluster will use to bootstap.
 
-Now create another cluster of three with the DzNS:
+Now create another cluster of three with the DzNS (these can be done in parellel):
 
 		$ export DOOZER_BOOT_URI='doozer:?ca=127.0.0.1:8046&ca=127.0.0.2:8046&ca=127.0.0.3:8046'
 		$ doozerd -l 127.0.0.11:8046
