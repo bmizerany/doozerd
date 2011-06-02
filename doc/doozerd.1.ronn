@@ -55,7 +55,7 @@ The address to bind to.  An <addr> is formatted as "host:port".
 
  * `-pulse`=<seconds>:
 How often (in seconds) to set applied key. The key is listed in the
-store under `/ctl/node/<id>/applied'. The contents of the file represents the
+store under `/ctl/node/<id>/applied`. The contents of the file represents the
 current revision of this process's copy of the store at the time of writing.
 
  * `-timeout`=<seconds>:
