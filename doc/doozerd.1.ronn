@@ -84,24 +84,24 @@ for for web connections.
 ## CLUSTERING
 
 To start a cluster, you will need to start the initial member for others to
-attach to, or use a *Doozer Name Service*.
+attach to, or use a *Doozer Name Service* (DzNS).
 
 **Without DzNS**
 
 Start the initial member:
 
-    $ doozerd -l 127.0.0.1:8046
+	$ doozerd -l 127.0.0.1:8046
 
 We can now slave our initial instance.
 
-    $ doozerd -l 127.0.0.2:8064 -a 127.0.0.1:8046
+	$ doozerd -l 127.0.0.2:8064 -a 127.0.0.1:8046
 
 Open http://127.0.0.2:8000 to view its web view. Note it sees itself and the
 initial member.
 
 Add the third slave:
 
-    $ doozerd -l 127.0.0.3:8064 -a 127.0.0.1:8046
+	$ doozerd -l 127.0.0.3:8064 -a 127.0.0.1:8046
 
 NOTE: Once the initial member is booted. Slaves can connect at anytime,
 meaning you can launch them in parallel.
@@ -111,8 +111,57 @@ meaning you can launch them in parallel.
 We need to use a Doozer client to add member slots. Here we will use the
 `doozer` command:
 
-    $ printf '' | doozer -a 'doozer?:ca=127.0.0.1:8046' set /ctl/cal/1 0
-    $ printf '' | doozer -a 'doozer?:ca=127.0.0.1:8046' set /ctl/cal/2 0
+	$ export DOOZER_URI="doozer?:ca=127.0.0.1:8046"
+	$ printf '' | doozer set /ctl/cal/1 0
+	$ printf '' | doozer set /ctl/cal/2 0
 
 Open any of the web views and see that each id is the body of one of the three
 files under `/ctl/cal`.
+
+**With DzNS**
+
+A DzNS cluster is a doozer cluster used by other doozerd processes to discover
+members of the cluster they want to join and decide who the initial member will
+be when creating new clusters.
+
+A DzNS is created the same way you create any other doozer cluster.
+
+To boot a cluster using a DzNS, start a doozerd with the `-b` flag or the
+`DOOZER_BOOT_URI` environment variable set. If your cluster name is not the
+default name for `-c`, you will also need to set it.
+
+The newly started doozerd will first connect to a member of the DzNS. Once
+connected, it will lookup the address of the doozerd listed under
+`/ctl/boot/<name>` in DzNS.  If `/ctl/boot/<name>` does not exist, the doozerd
+will attempt to create it with its identity as the contents. If succesfull, it
+will become the initial member of the cluster and the others will slave it.
+
+
+	$ export DOOZER_BOOT_URI="
+		doozer:?
+		ca=127.0.0.1:8046&
+		ca=127.0.0.2:8046&
+		ca=127.0.0.3:8046
+	"
+
+NOTE: All doozerds can be started in parellel when using a DzNS.
+
+	$ doozerd -c example -l 127.0.0.10:8046
+	$ doozerd -c example -l 127.0.0.20:8046
+	$ doozerd -c example -l 127.0.0.30:8046
+	$ doozerd -c example -l 127.0.0.40:8046
+
+
+Now we can create the member slots under `/ctl/cal` in the new doozerd
+processes.  We will, again, use our DzNS to determine which is the member we
+need to write to.
+
+First, we need to set the cluster name we want to use in the `DOOZER_URI`
+environment variable, then we create the empty files.  The `DOOZER_BOOT_URI`
+will remain unchanged.
+
+	$ export DOOZER_URI="doozer:?cn=example"
+	$ printf '' | doozer set /ctl/cal/1 0
+	$ printf '' | doozer set /ctl/cal/2 0
+
+## ENVIRONMENT
