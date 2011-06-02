@@ -40,3 +40,34 @@ operation given to a member goes through consensus. This guarantees the order
 of the writes to all stores.  Doozerd employs the
 [Paxos](http://en.wikipedia.org/wiki/Paxos_\(computer_science\)) algorithm for
 consensus.
+
+OPTIONS
+
+  * `-a`=<addr>:
+Attach to a member in a cluster. If attached, the doozerd
+begins life as a slave.  If there is an empty file under `/ctl/cal`, it will
+try to set the contents to its identity.  The value of `-c` must match the contents of the file `/ctl/name` at <addr>.
+
+  * `-b`=<uri>:
+Lookup the address of cluster *name* given to `-c` at the addrs given in the doozer-uri *uri*.
+
+  * `-c`=<name>:
+Specify the name of the cluster.  This helps make sure slaves connect to the correct cluster and also when looking up address in a DsNS.
+
+  * `-fill`=<seconds>
+Specify the number of seconds to wait before filling in unknown sequence numbers.  Members are responsible for mod(N) sequence numbers; Where N is its place in the list.  If a write is requested by a client and the 
+
+
+  -fill=0.1: delay (in seconds) to fill unowned seqns
+  -hist=2000: length of history/revisions to keep
+  -l="127.0.0.1:8046": The address to bind to.
+  -pulse=1: how often (in seconds) to set applied key
+  -timeout=60: timeout (in seconds) to kick inactive nodes
+  -tlscert="": TLS public certificate
+  -tlskey="": TLS private key
+  -v=false: print doozerd's version string
+  -w="": web listen addr (default: see below)
+
+The default for -w is to use the addr from -l,
+and change the port to 8000. If you give "-w false",
+doozerd will not listen for for web connections.
