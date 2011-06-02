@@ -3,12 +3,39 @@ doozerd(1) -- A consistent, fault-tolerent, distributed data store.
 
 ## SYNOPSIS
 
-`doozerd` [options]
-
-`doozerd` [-c <name>] [-l <listen addr>] [-a <member addr>]
-
+`doozerd` [options] <br>
+`doozerd` [-c <name>] [-l <listen-addr>] [-a <member-addr>] <br>
 `doozerd` [-c example] [-b <uri>]
 
 ## DESCRIPTION
 
-It's bad ass. Use it.
+*Doozerd* stores data in a cluster of doozerds consistently. When there are
+more than one doozerds in a cluster, it takes on the property of
+fault-tolerance. Each doozerd participating in consensus is called a member.
+One on more members make up a *cluster*. A doozerd attached to a cluster that
+is not participating in consensus is a *slave*. Slaves learn values in the
+order members do while watching the `/ctl/cal` directory for an empty file to
+appear. If this happens, slaves will attempt to set the contents of that file
+to their identity. If the file is written successfully, the slave will become
+a member of the cluster.
+
+Clusters are master less; any member can be written to. Clients generally only
+connect to members.
+
+**Store**
+
+Members and slaves have stores.  The data in a store is organized in a tree of
+*directories* and *files* with *revisions*. (see [Data
+Model](https://github.com/ha/doozerd/blob/master/doc/data-model.md)).
+
+**Consistency**
+
+Members and slaves change their stores in the same order as the others. This
+means each store is a mirror of another for all revisions. Inspecting one store
+at revision R will yield the same state as another at revision R.
+
+**Consensus**
+
+For members and slaves to change their stores in the same order, each write
+operation given to a member goes through consensus. This guarantees the order of
+the writes to all stores.
