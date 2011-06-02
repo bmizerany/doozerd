@@ -8,30 +8,19 @@ doozerd(1) -- A consistent, fault-tolerent, distributed data store.
 
 ## DESCRIPTION
 
-*Doozerd* stores data in a cluster of doozerds consistently. When there are
-more than one doozerds in a cluster, it takes on the property of
-fault-tolerance. Each doozerd participating in consensus is called a member.
-One on more members make up a *cluster*. A doozerd attached to a cluster that
-is not participating in consensus is a *slave*. Slaves learn values in the
-order members do while watching the `/ctl/cal` directory for an empty file to
-appear. If this happens, slaves will attempt to set the contents of that file
-to their identity. If the file is written successfully, the slave will become
-a member of the cluster.
-
-Clusters are master less; any member can be written to. Clients generally only
-connect to members.
-
-**Store**
-
-Members and slaves have stores.  The data in a store is organized in a tree of
-*directories* and *files* with *revisions*. (see [Data
-Model](https://github.com/ha/doozerd/blob/master/doc/data-model.md)).
-
-**Consistency**
-
-Members and slaves change their stores in the same order as the others. This
-means each store is a mirror of another for all revisions. Inspecting one store
-at revision R will yield the same state as another at revision R.
+*Doozerd* stores data in a cluster of doozerds consistently. A cluster has one
+or more members and zero or more slaves.  When there is more than one doozerd
+in a cluster, it takes on the property of fault-tolerance. Each doozerd
+participating in consensus is called a member.  One or more members make up a
+*cluster*. A doozerd attached to a cluster, and that is not participating in
+consensus, is a *slave*. Slaves watch the `/ctl/cal` directory for an empty
+file to appear. If this happens, slaves will attempt to set the contents of
+that file to their identity. If the file is written successfully, the slave
+will become a member of the cluster.  Each doozerd process keeps a complete,
+consistent copy of the entire data store by changing their own stores in the
+same order as the others. (See [Data
+Model](https://github.com/ha/doozerd/blob/master/doc/data-model.md) for more
+information.)
 
 **Consensus**
 
@@ -41,59 +30,49 @@ of the writes to all stores.  Doozerd employs the
 [Paxos](http://en.wikipedia.org/wiki/Paxos_\(computer_science\)) algorithm for
 consensus.
 
-**Sequence Numbers**
+## OPTIONS
 
-When proposing a mutation to consensus, the member assigns it a sequence
-number.  This number represents the time to execute the mutation on the store.
-Once a mutation is decided on for that sequence number, it is the only mutation
-for that sequence number, ever.
-
-Members are responsible for a subset of sequence numbers.  When proposing a
-mutation, they determine the sequence number to assign it by looking at the list
-of members under `/ctl/node` at rev R, determining their index in the list, a TODO: finish.
-
-OPTIONS
-
-  * `-a`=<addr>:
+ * `-a`=<addr>:
 Attach to a member in a cluster at address <addr>.
 
-  * `-b`=<uri>:
+ * `-b`=<uri>:
 A uri containing the address of a DzNS cluster. If members are found under
-`/ctl/ns/<name>`, the doozerd will attempt to connect to each until a successful
-connection. See
-[doozer-uri(7)](https://github.com/ha/doozerd/blob/master/doc/uri.md)).
+`/ctl/ns/<name>`, doozerd will attempt to connect to each until it succeeds.
+See [doozer-uri(7)](https://github.com/ha/doozerd/blob/master/doc/uri.md)).
 
-  * `-c`=<name>:
+ * `-c`=<name>:
 The name of a cluster. This is used for ensuring slaves connect to the
-correct cluster and looking up addresses in DzNS.
+correct cluster and for looking up addresses in DzNS.
 
-  * `-fill`=<seconds>:
+ * `-fill`=<seconds>:
 The number of seconds to wait before filling in unknown sequence numbers.
 
-  * `-hist`=<integer>:
+ * `-hist`=<integer>:
 The length of history/revisions to keep in the store.
 
-  * `-l`=<addr>:
+ * `-l`=<addr>:
 The address to bind to.  An <addr> is formatted as "host:port".
 
-  * `-pulse`=<seconds>:
+ * `-pulse`=<seconds>:
 How often (in seconds) to set applied key. The key is listed in the
 store under `/ctl/node/<id>/applied'. The contents of the file represents the
-current revision of the store at the time of writing.
+current revision of this process's copy of the store at the time of writing.
 
-  * `-timeout`=<seconds>:
+ * `-timeout`=<seconds>:
 The timeout (in seconds) to kick inactive members.
 
-  * `-tlscert`=<file>:
-TLS public certificate. If specified, all client traffic is encrypted with SSL.
+ * `-tlscert`=<file>:
+TLS public certificate. If both a `-tlscert` and `-tlskey` are given, all
+client traffic is encrypted with TLS.
 
-  * `-tlskey`=<file>:
-TLS private key. If specified, all client traffic is encrypted with SSL.
+ * `-tlskey`=<file>:
+TLS private key. If both a `-tlscert` and `-tlskey` are given, all client
+traffic is encrypted with TLS.
 
-  * `-v`:
+ * `-v`:
 Print doozerd's version string and exit.
 
-  * `-w`=<addr|false>:
+ * `-w`=<addr|false>:
 The listen address for the web view.  The default is to use the addr from `-l`,
 and change the port to 8000. If you give `-w false`, doozerd will not listen
 for for web connections.
