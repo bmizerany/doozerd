@@ -4,8 +4,7 @@ doozerd(1) -- A consistent, fault-tolerent, distributed data store.
 ## SYNOPSIS
 
 `doozerd` [options] <br>
-`doozerd` [-c <name>] [-l <listen-addr>] [-a <member-addr>] <br>
-`doozerd` [-c example] [-b <uri>]
+`doozerd` [-c <name>] [-l <addr>] [-a <addr> | -b <uri>] <br>
 
 ## DESCRIPTION
 
@@ -37,5 +36,7 @@ at revision R will yield the same state as another at revision R.
 **Consensus**
 
 For members and slaves to change their stores in the same order, each write
-operation given to a member goes through consensus. This guarantees the order of
-the writes to all stores.
+operation given to a member goes through consensus. This guarantees the order
+of the writes to all stores.  Doozerd employs the
+[Paxos](http://en.wikipedia.org/wiki/Paxos_\(computer_science\)) algorithm for
+consensus.
