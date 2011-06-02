@@ -94,6 +94,6 @@ TLS private key. If specified, all client traffic is encrypted with SSL.
 Print doozerd's version string and exit.
 
   * `-w`=<addr|false>:
-The listen address for the web view.  The default is to use the addr from -l,
+The listen address for the web view.  The default is to use the addr from `-l`,
 and change the port to 8000. If you give `-w false`, doozerd will not listen
 for for web connections.
