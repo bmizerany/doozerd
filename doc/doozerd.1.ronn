@@ -9,14 +9,14 @@ doozerd(1) -- A consistent, fault-tolerent, distributed data store.
 ## DESCRIPTION
 
 *Doozerd* stores data in a cluster of doozerds consistently. A cluster has one
-or more members and zero or more slaves.  When there is more than one doozerd
-in a cluster, it takes on the property of fault-tolerance. Each doozerd
-participating in consensus is called a member.  One or more members make up a
+or more members and zero or more slaves. When there is more than one doozerd in
+a cluster, it takes on the property of fault-tolerance. Each doozerd
+participating in consensus is called a member. One or more members make up a
 *cluster*. A doozerd attached to a cluster, and that is not participating in
 consensus, is a *slave*. Slaves watch the `/ctl/cal` directory for an empty
 file to appear. If this happens, slaves will attempt to set the contents of
 that file to their identity. If the file is written successfully, the slave
-will become a member of the cluster.  Each doozerd process keeps a complete,
+will become a member of the cluster. Each doozerd process keeps a complete,
 consistent copy of the entire data store by changing their own stores in the
 same order as the others. (See [Data
 Model](https://github.com/ha/doozerd/blob/master/doc/data-model.md) for more
@@ -26,7 +26,7 @@ information.)
 
 For members and slaves to change their stores in the same order, each write
 operation given to a member goes through consensus. This guarantees the order
-of the writes to all stores.  Doozerd employs the
+of the writes to all stores. Doozerd employs the
 [Paxos](http://en.wikipedia.org/wiki/Paxos_\(computer_science\)) algorithm for
 consensus.
 
@@ -51,12 +51,16 @@ The number of seconds to wait before filling in unknown sequence numbers.
 The length of history/revisions to keep in the store.
 
  * `-l`=<addr>:
-The address to bind to.  An <addr> is formatted as "host:port".
+The address to bind to. An <addr> is formatted as "host:port". It is import
+that note that doozerd uses the address given to `-l` as an identifier. It is
+not sufficient to use `0.0.0.0`. The <addr> must be the address others will
+connect to it with.
+
 
  * `-pulse`=<seconds>:
-How often (in seconds) to set applied key. The key is listed in the
-store under `/ctl/node/<id>/applied`. The contents of the file represents the
-current revision of this process's copy of the store at the time of writing.
+How often (in seconds) to set applied key. The key is listed in the store under
+`/ctl/node/<id>/applied`. The contents of the file represents the current
+revision of this process's copy of the store at the time of writing.
 
  * `-timeout`=<seconds>:
 The timeout (in seconds) to kick inactive members.
@@ -73,6 +77,42 @@ traffic is encrypted with TLS.
 Print doozerd's version string and exit.
 
  * `-w`=<addr|false>:
-The listen address for the web view.  The default is to use the addr from `-l`,
+The listen address for the web view. The default is to use the addr from `-l`,
 and change the port to 8000. If you give `-w false`, doozerd will not listen
 for for web connections.
+
+## CLUSTERING
+
+To start a cluster, you will need to start the initial member for others to
+attach to, or use a *Doozer Name Service*.
+
+**Without DzNS**
+
+Start the initial member:
+
+    $ doozerd -l 127.0.0.1:8046
+
+We can now slave our initial instance.
+
+    $ doozerd -l 127.0.0.2:8064 -a 127.0.0.1:8046
+
+Open http://127.0.0.2:8000 to view its web view. Note it sees itself and the
+initial member.
+
+Add the third slave:
+
+    $ doozerd -l 127.0.0.3:8064 -a 127.0.0.1:8046
+
+NOTE: Once the initial member is booted. Slaves can connect at anytime,
+meaning you can launch them in parallel.
+
+**Adding member slots**
+
+We need to use a Doozer client to add member slots. Here we will use the
+`doozer` command:
+
+    $ printf '' | doozer -a 'doozer?:ca=127.0.0.1:8046' set /ctl/cal/1 0
+    $ printf '' | doozer -a 'doozer?:ca=127.0.0.1:8046' set /ctl/cal/2 0
+
+Open any of the web views and see that each id is the body of one of the three
+files under `/ctl/cal`.
