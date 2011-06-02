@@ -1,0 +1,14 @@
+doozerd(1) -- A consistent, fault-tolerent, distributed data store.
+===================================================================
+
+## SYNOPSIS
+
+`doozerd` [options]
+
+`doozerd` [-c <name>] [-l <listen addr>] [-a <member addr>]
+
+`doozerd` [-c example] [-b <uri>]
+
+## DESCRIPTION
+
+It's bad ass. Use it.
