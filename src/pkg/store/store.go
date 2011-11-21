@@ -1,12 +1,11 @@
 package store
 
 import (
-	"container/heap"
-	"container/vector"
-	"os"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
+	"container/heap"
 )
 
 // Special values for a revision.
@@ -24,16 +23,40 @@ var pathRe = mustBuildRe(charPat)
 
 var Any = MustCompileGlob("/**")
 
-var ErrTooLate = os.NewError("too late")
+var ErrTooLate = errors.New("too late")
 
 var (
-	ErrBadMutation = os.NewError("bad mutation")
-	ErrRevMismatch = os.NewError("rev mismatch")
-	ErrBadPath     = os.NewError("bad path")
+	ErrBadMutation = errors.New("bad mutation")
+	ErrRevMismatch = errors.New("rev mismatch")
+	ErrBadPath     = errors.New("bad path")
 )
 
 func mustBuildRe(p string) *regexp.Regexp {
 	return regexp.MustCompile(`^/$|^(/` + p + `+)+$`)
+}
+
+type Ops []Op
+
+func (o *Ops) Push(x interface{}) {
+	*o = append(*o, x.(Op))
+}
+
+func (o *Ops) Pop() (x interface{}) {
+	n := len(*o)
+	x, *o = (*o)[n-1], (*o)[:n-1]
+	return
+}
+
+func (o *Ops) Len() int {
+	return len(*o)
+}
+
+func (o *Ops) Less(i, j int) bool {
+	return (*o)[i].Seqn < (*o)[j].Seqn
+}
+
+func (o *Ops) Swap(i, j int) {
+	(*o)[i], (*o)[j] = (*o)[j], (*o)[i]
 }
 
 // Applies mutations sent on Ops in sequence according to field Seqn. Any
@@ -45,7 +68,7 @@ type Store struct {
 	Waiting <-chan int
 	watchCh chan *watch
 	watches []*watch
-	todo    *vector.Vector
+	todo    Ops
 	state   *state
 	head    int64
 	log     map[int64]Event
@@ -59,11 +82,6 @@ type Store struct {
 type Op struct {
 	Seqn int64
 	Mut  string
-}
-
-// Satisfies vector.LessInterface.
-func (x Op) Less(y interface{}) bool {
-	return x.Seqn < y.(Op).Seqn
 }
 
 type state struct {
@@ -90,7 +108,6 @@ func New() *Store {
 		Seqns:   seqns,
 		Waiting: watches,
 		watchCh: make(chan *watch),
-		todo:    new(vector.Vector),
 		watches: []*watch{},
 		state:   &state{0, emptyDir},
 		log:     map[int64]Event{},
@@ -113,7 +130,7 @@ func join(parts []string) string {
 	return "/" + strings.Join(parts, "/")
 }
 
-func checkPath(k string) os.Error {
+func checkPath(k string) error {
 	if !pathRe.MatchString(k) {
 		return ErrBadPath
 	}
@@ -124,7 +141,7 @@ func checkPath(k string) os.Error {
 // the contents of the file at `path` to `body` iff `rev` is greater than
 // of equal to the file's revision at the time of application, with
 // one exception: if `rev` is Clobber, the file will be set unconditionally.
-func EncodeSet(path, body string, rev int64) (mutation string, err os.Error) {
+func EncodeSet(path, body string, rev int64) (mutation string, err error) {
 	if err = checkPath(path); err != nil {
 		return
 	}
@@ -136,9 +153,9 @@ func EncodeSet(path, body string, rev int64) (mutation string, err os.Error) {
 // of equal to the file's revision at the time of application, with
 // one exception: if `rev` is Clobber, the file will be deleted
 // unconditionally.
-func EncodeDel(path string, rev int64) (mutation string, err os.Error) {
+func EncodeDel(path string, rev int64) (string, error) {
 	if err := checkPath(path); err != nil {
-		return
+		return "", err
 	}
 	return strconv.Itoa64(rev) + ":" + path, nil
 }
@@ -165,7 +182,7 @@ func MustEncodeDel(path string, rev int64) (mutation string) {
 	return m
 }
 
-func decode(mutation string) (path, v string, rev int64, keep bool, err os.Error) {
+func decode(mutation string) (path, v string, rev int64, keep bool, err error) {
 	cm := strings.SplitN(mutation, ":", 2)
 
 	if len(cm) != 2 {
@@ -226,7 +243,7 @@ func (st *Store) process(ops <-chan Op, seqns chan<- int64, watches chan<- int) 
 			}
 
 			if a.Seqn > ver {
-				heap.Push(st.todo, a)
+				heap.Push(&st.todo, a)
 			}
 		case w := <-st.watchCh:
 			n, ws := w.rev, []*watch{w}
@@ -240,7 +257,7 @@ func (st *Store) process(ops <-chan Op, seqns chan<- int64, watches chan<- int) 
 			st.watches = append(st.watches, ws...)
 		case seqn := <-st.cleanCh:
 			for ; st.head <= seqn; st.head++ {
-				st.log[st.head] = Event{}, false
+				delete(st.log, st.head)
 			}
 		case seqns <- ver:
 			// nothing to do here
@@ -253,7 +270,7 @@ func (st *Store) process(ops <-chan Op, seqns chan<- int64, watches chan<- int) 
 		var ev Event
 		// If we have any mutations that can be applied, do them.
 		for st.todo.Len() > 0 {
-			t := st.todo.At(0).(Op)
+			t := st.todo[0]
 			if flush && ver < t.Seqn {
 				ver = t.Seqn - 1
 			}
@@ -261,7 +278,7 @@ func (st *Store) process(ops <-chan Op, seqns chan<- int64, watches chan<- int) 
 				break
 			}
 
-			heap.Pop(st.todo)
+			heap.Pop(&st.todo)
 			if t.Seqn < ver+1 {
 				continue
 			}
@@ -324,7 +341,7 @@ func (st *Store) Flush() {
 //
 // If rev is less than any value passed to st.Clean, Wait will return
 // ErrTooLate.
-func (st *Store) Wait(glob *Glob, rev int64) (<-chan Event, os.Error) {
+func (st *Store) Wait(glob *Glob, rev int64) (<-chan Event, error) {
 	if rev < 1 {
 		rev = 1
 	}
