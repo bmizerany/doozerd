@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"container/heap"
-	"container/vector"
 	"doozer/store"
 	"goprotobuf.googlecode.com/hg/proto"
 	"log"
@@ -11,27 +10,9 @@ import (
 	"time"
 )
 
-type packet struct {
-	Addr *net.UDPAddr
-	msg
-}
-
-func (p packet) Less(y interface{}) bool {
-	return *p.Seqn < *y.(*packet).Seqn
-}
-
 type Packet struct {
 	Addr *net.UDPAddr
 	Data []byte
-}
-
-type trigger struct {
-	t int64 // trigger time
-	n int64 // seqn
-}
-
-func (t trigger) Less(y interface{}) bool {
-	return t.t < y.(trigger).t
 }
 
 type Stats struct {
@@ -64,9 +45,9 @@ type Manager struct {
 	Stats  Stats
 	run    map[int64]*run
 	next   int64 // unused seqn
-	fill   vector.Vector
-	packet vector.Vector
-	tick   vector.Vector
+	fill   triggers
+	packet packets
+	tick   triggers
 }
 
 type Prop struct {
@@ -104,14 +85,14 @@ func (m *Manager) Run() {
 			m.event(e)
 			m.Stats.TotalRuns++
 			log.Println("runs:", fmtRuns(m.run))
-			log.Println("avg tick delay:", avg(&m.tick))
-			log.Println("avg fill delay:", avg(&m.fill))
+			log.Println("avg tick delay:", avg(m.tick))
+			log.Println("avg fill delay:", avg(m.fill))
 		case p := <-m.In:
-			if p1 := recvPacket(&m.packet, p); p1 != nil {
+			if p1 := recvPacket(m.packet, p); p1 != nil {
 				m.Stats.TotalRecv[*p1.msg.Cmd]++
 			}
 		case pr := <-m.Props:
-			m.propose(&m.packet, pr, time.Nanoseconds())
+			m.propose(m.packet, pr, time.Nanoseconds())
 		case t := <-m.Ticker:
 			m.doTick(t)
 		}
@@ -122,7 +103,7 @@ func (m *Manager) Run() {
 
 func (m *Manager) pump() {
 	for m.packet.Len() > 0 {
-		p := m.packet.At(0).(*packet)
+		p := &m.packet.v[0]
 		log.Printf("p.seqn=%d m.next=%d", *p.Seqn, m.next)
 		if *p.Seqn >= m.next {
 			break
@@ -188,7 +169,7 @@ func sendLearn(out chan<- Packet, p *packet, st *store.Store) {
 	}
 }
 
-func recvPacket(q heap.Interface, P Packet) (p *packet) {
+func recvPacket(q packets, P Packet) (p *packet) {
 	p = new(packet)
 	p.Addr = P.Addr
 
@@ -207,13 +188,13 @@ func recvPacket(q heap.Interface, P Packet) (p *packet) {
 	return p
 }
 
-func avg(v *vector.Vector) (n int64) {
+func avg(v triggers) (n int64) {
 	t := time.Nanoseconds()
 	if v.Len() == 0 {
 		return -1
 	}
-	for _, x := range []interface{}(*v) {
-		n += x.(trigger).t - t
+	for _, x := range v.v {
+		n += x.t - t
 	}
 	return n / int64(v.Len())
 }
@@ -222,7 +203,7 @@ func schedTrigger(q heap.Interface, n, t, tfill int64) {
 	heap.Push(q, trigger{n: n, t: t + tfill})
 }
 
-func applyTriggers(packets, ticks *vector.Vector, now int64, tpl *msg) (n int) {
+func applyTriggers(pkts *packets, ticks *triggers, now int64, tpl *msg) (n int) {
 	for ticks.Len() > 0 {
 		tt := ticks.At(0).(trigger)
 		if tt.t > now {
@@ -235,7 +216,7 @@ func applyTriggers(packets, ticks *vector.Vector, now int64, tpl *msg) (n int) {
 		p.msg = *tpl
 		p.msg.Seqn = &tt.n
 		log.Println("applying", *p.Seqn, msg_Cmd_name[int32(*p.Cmd)])
-		heap.Push(packets, p)
+		heap.Push(pkts, p)
 		n++
 	}
 	return

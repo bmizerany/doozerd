@@ -10,6 +10,8 @@ GOFILES=\
 	m.go\
 	m.pb.go\
 	manager.go\
+	trigger.go\
+	packet.go\
 
 include $(GOROOT)/src/Make.pkg
 
