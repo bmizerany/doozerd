@@ -205,7 +205,7 @@ func schedTrigger(q heap.Interface, n, t, tfill int64) {
 
 func applyTriggers(pkts *packets, ticks *triggers, now int64, tpl *msg) (n int) {
 	for ticks.Len() > 0 {
-		tt := ticks.At(0).(trigger)
+		tt := ticks.v[0]
 		if tt.t > now {
 			break
 		}
